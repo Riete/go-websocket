@@ -1,6 +1,8 @@
 package go_websocket
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -60,6 +62,13 @@ func NewServer(w http.ResponseWriter, r *http.Request, h http.Header, options ..
 // NewClient scheme is "ws" or "wss"
 func NewClient(scheme, addr, path string, h http.Header) (*Conn, error) {
 	u := url.URL{Scheme: scheme, Host: addr, Path: path}
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), h)
-	return &Conn{conn: conn}, err
+	conn, r, err := websocket.DefaultDialer.Dial(u.String(), h)
+	if err != nil {
+		b, er := io.ReadAll(r.Body)
+		if er != nil {
+			_ = r.Body.Close()
+		}
+		return nil, fmt.Errorf("%s: %s %s", err.Error(), r.Status, string(b))
+	}
+	return &Conn{conn: conn}, nil
 }
