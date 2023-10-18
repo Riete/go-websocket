@@ -59,10 +59,9 @@ func NewServer(w http.ResponseWriter, r *http.Request, h http.Header, options ..
 	return &Conn{conn: conn}, err
 }
 
-// NewClient scheme is "ws" or "wss"
-func NewClient(scheme, addr, path string, h http.Header) (*Conn, error) {
+func newClient(dialer *websocket.Dialer, scheme, addr, path string, h http.Header) (*Conn, error) {
 	u := url.URL{Scheme: scheme, Host: addr, Path: path}
-	conn, r, err := websocket.DefaultDialer.Dial(u.String(), h)
+	conn, r, err := dialer.Dial(u.String(), h)
 	if err != nil {
 		b, er := io.ReadAll(r.Body)
 		if er != nil {
@@ -71,4 +70,20 @@ func NewClient(scheme, addr, path string, h http.Header) (*Conn, error) {
 		return nil, fmt.Errorf("%s: %s %s", err.Error(), r.Status, string(b))
 	}
 	return &Conn{conn: conn}, nil
+}
+
+// NewClient scheme is "ws" or "wss"
+func NewClient(dialer *websocket.Dialer, scheme, addr, path string, h http.Header) (*Conn, error) {
+	if dialer == nil {
+		dialer = websocket.DefaultDialer
+	}
+	return newClient(dialer, scheme, addr, path, h)
+}
+
+func NewWsClient(dialer *websocket.Dialer, addr, path string, h http.Header) (*Conn, error) {
+	return NewClient(dialer, "ws", addr, path, h)
+}
+
+func NewWssClient(dialer *websocket.Dialer, addr, path string, h http.Header) (*Conn, error) {
+	return NewClient(dialer, "wss", addr, path, h)
 }
