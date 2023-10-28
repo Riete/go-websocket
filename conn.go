@@ -3,6 +3,7 @@ package go_websocket
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -16,6 +17,50 @@ type Conn struct {
 
 func (c *Conn) Conn() *websocket.Conn {
 	return c.conn
+}
+
+func (c *Conn) UnderlyingConn() net.Conn {
+	return c.conn.UnderlyingConn()
+}
+
+func (c *Conn) PingHandler() func(string) error {
+	return c.conn.PingHandler()
+}
+
+func (c *Conn) PongHandler() func(string) error {
+	return c.conn.PongHandler()
+}
+
+func (c *Conn) CloseHandler() func(int, string) error {
+	return c.conn.CloseHandler()
+}
+
+func (c *Conn) SetPingHandler(h func(string) error) {
+	c.conn.SetPingHandler(h)
+}
+
+func (c *Conn) SetPongHandler(h func(string) error) {
+	c.conn.SetPongHandler(h)
+}
+
+func (c *Conn) SetCloseHandler(h func(int, string) error) {
+	c.conn.SetCloseHandler(h)
+}
+
+func (c *Conn) SetCompressionLevel(level int) error {
+	return c.conn.SetCompressionLevel(level)
+}
+
+func (c *Conn) SetWriteDeadline(t time.Time) error {
+	return c.conn.SetWriteDeadline(t)
+}
+
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	return c.conn.SetReadDeadline(t)
+}
+
+func (c *Conn) SetReadLimit(limit int64) {
+	c.conn.SetReadLimit(limit)
 }
 
 func (c *Conn) WritePing(data []byte) error {
@@ -44,6 +89,10 @@ func (c *Conn) WriteJson(v interface{}) error {
 
 func (c *Conn) ReadMessage() (int, []byte, error) {
 	return c.conn.ReadMessage()
+}
+
+func (c *Conn) ReadJson(v interface{}) error {
+	return c.conn.ReadJSON(v)
 }
 
 func (c *Conn) Close() error {
