@@ -18,12 +18,12 @@ func (c *Conn) Conn() *websocket.Conn {
 	return c.conn
 }
 
-func (c *Conn) WritePing() error {
-	return c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(time.Second))
+func (c *Conn) WritePing(data []byte) error {
+	return c.conn.WriteControl(websocket.PingMessage, data, time.Now().Add(time.Second))
 }
 
-func (c *Conn) WritePong() error {
-	return c.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(time.Second))
+func (c *Conn) WritePong(data []byte) error {
+	return c.conn.WriteControl(websocket.PongMessage, data, time.Now().Add(time.Second))
 }
 
 func (c *Conn) WriteClose(code int, text string) error {
