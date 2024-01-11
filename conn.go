@@ -112,11 +112,14 @@ func newClient(dialer *websocket.Dialer, scheme, addr, path string, h http.Heade
 	u := url.URL{Scheme: scheme, Host: addr, Path: path}
 	conn, r, err := dialer.Dial(u.String(), h)
 	if err != nil {
-		b, er := io.ReadAll(r.Body)
-		if er != nil {
-			_ = r.Body.Close()
+		if r != nil {
+			b, er := io.ReadAll(r.Body)
+			if er != nil {
+				_ = r.Body.Close()
+			}
+			return nil, fmt.Errorf("%s: %s %s", err.Error(), r.Status, string(b))
 		}
-		return nil, fmt.Errorf("%s: %s %s", err.Error(), r.Status, string(b))
+		return nil, err
 	}
 	return &Conn{conn: conn}, nil
 }
