@@ -1,6 +1,8 @@
 package ws
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -97,6 +99,42 @@ func (c *Conn) ReadJson(v interface{}) error {
 
 func (c *Conn) Close() error {
 	return c.conn.Close()
+}
+
+func (c *Conn) SetHeartbeat(ctx context.Context, sendInterval time.Duration, recvTimeout time.Duration) chan error {
+	ch := make(chan error)
+	if sendInterval > recvTimeout {
+		ch <- errors.New("send interval cannot greater than receive timeout")
+		return ch
+	}
+	go func() {
+		ticker := time.NewTicker(sendInterval)
+		defer ticker.Stop()
+		defer close(ch)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := c.WritePing(nil); err != nil {
+					ch <- err
+					return
+				}
+			}
+		}
+	}()
+	_ = c.SetReadDeadline(time.Now().Add(recvTimeout))
+	oriPongHandler := c.PongHandler()
+	c.SetPongHandler(func(s string) error {
+		if err := c.SetReadDeadline(time.Now().Add(recvTimeout)); err != nil {
+			return err
+		}
+		if oriPongHandler != nil {
+			return oriPongHandler(s)
+		}
+		return nil
+	})
+	return ch
 }
 
 func NewServer(w http.ResponseWriter, r *http.Request, h http.Header, options ...UpgraderOption) (*Conn, error) {

@@ -1,14 +1,24 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"time"
 
 	ws "github.com/riete/go-websocket"
 )
 
 func echo(w http.ResponseWriter, r *http.Request) {
 	s, _ := ws.NewServer(w, r, nil, ws.WithDisableCheckOrigin())
+	s.SetPongHandler(func(s string) error {
+		log.Println("recv ping from client")
+		return nil
+	})
+	ch := s.SetHeartbeat(context.Background(), time.Second, 3*time.Second)
+	go func() {
+		log.Println(<-ch)
+	}()
 	defer s.Close()
 	for {
 		mt, message, err := s.ReadMessage()
