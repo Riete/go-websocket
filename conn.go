@@ -13,9 +13,8 @@ import (
 )
 
 type Conn struct {
-	conn                 *websocket.Conn
-	oriPingHandler       func(string) error
-	customPingHandlerSet bool
+	conn           *websocket.Conn
+	oriPingHandler func(string) error
 }
 
 func (c *Conn) Conn() *websocket.Conn {
@@ -39,8 +38,12 @@ func (c *Conn) CloseHandler() func(int, string) error {
 }
 
 func (c *Conn) SetPingHandler(h func(string) error) {
-	c.customPingHandlerSet = true
-	c.conn.SetPingHandler(h)
+	c.conn.SetPingHandler(func(s string) error {
+		if err := h(s); err != nil {
+			return err
+		}
+		return c.oriPingHandler(s)
+	})
 }
 
 func (c *Conn) SetPongHandler(h func(string) error) {
@@ -130,15 +133,6 @@ func (c *Conn) SendHeartbeat(ctx context.Context, sendInterval time.Duration, re
 		_ = c.SetReadDeadline(time.Now().Add(recvTimeout))
 		return customPongHandler(s)
 	})
-	if c.customPingHandlerSet {
-		customPingHandler := c.PingHandler()
-		c.SetPingHandler(func(s string) error {
-			if err := customPingHandler(s); err != nil {
-				return err
-			}
-			return c.oriPingHandler(s)
-		})
-	}
 	return ch
 }
 
