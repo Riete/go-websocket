@@ -11,13 +11,13 @@ import (
 
 func echo(w http.ResponseWriter, r *http.Request) {
 	s, _ := ws.NewServer(w, r, nil, ws.WithDisableCheckOrigin())
-	s.SetPongHandler(func(s string) error {
-		log.Println("recv ping from client")
+	s.SetPingHandler(func(s string) error {
+		log.Println("recv ping from client: " + s)
 		return nil
 	})
-	ch := s.SetHeartbeat(context.Background(), time.Second, 3*time.Second)
+	ch := s.SendHeartbeat(context.Background(), time.Second, 3*time.Second, []byte("hello I'm server"))
 	go func() {
-		log.Println(<-ch)
+		log.Println("heartbeat", <-ch)
 	}()
 	defer s.Close()
 	for {

@@ -2,7 +2,6 @@ package ws
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -14,15 +13,17 @@ import (
 )
 
 type Conn struct {
-	conn *websocket.Conn
+	conn                 *websocket.Conn
+	oriPingHandler       func(string) error
+	customPingHandlerSet bool
 }
 
 func (c *Conn) Conn() *websocket.Conn {
 	return c.conn
 }
 
-func (c *Conn) UnderlyingConn() net.Conn {
-	return c.conn.UnderlyingConn()
+func (c *Conn) NetConn() net.Conn {
+	return c.conn.NetConn()
 }
 
 func (c *Conn) PingHandler() func(string) error {
@@ -38,6 +39,7 @@ func (c *Conn) CloseHandler() func(int, string) error {
 }
 
 func (c *Conn) SetPingHandler(h func(string) error) {
+	c.customPingHandlerSet = true
 	c.conn.SetPingHandler(h)
 }
 
@@ -101,11 +103,10 @@ func (c *Conn) Close() error {
 	return c.conn.Close()
 }
 
-func (c *Conn) SetHeartbeat(ctx context.Context, sendInterval time.Duration, recvTimeout time.Duration) chan error {
+func (c *Conn) SendHeartbeat(ctx context.Context, sendInterval time.Duration, recvTimeout time.Duration, data []byte) chan error {
 	ch := make(chan error)
 	if sendInterval > recvTimeout {
-		ch <- errors.New("send interval cannot greater than receive timeout")
-		return ch
+		recvTimeout = sendInterval + time.Second
 	}
 	go func() {
 		ticker := time.NewTicker(sendInterval)
@@ -116,7 +117,7 @@ func (c *Conn) SetHeartbeat(ctx context.Context, sendInterval time.Duration, rec
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if err := c.WritePing(nil); err != nil {
+				if err := c.WritePing(data); err != nil {
 					ch <- err
 					return
 				}
@@ -124,16 +125,20 @@ func (c *Conn) SetHeartbeat(ctx context.Context, sendInterval time.Duration, rec
 		}
 	}()
 	_ = c.SetReadDeadline(time.Now().Add(recvTimeout))
-	oriPongHandler := c.PongHandler()
+	customPongHandler := c.PongHandler()
 	c.SetPongHandler(func(s string) error {
-		if err := c.SetReadDeadline(time.Now().Add(recvTimeout)); err != nil {
-			return err
-		}
-		if oriPongHandler != nil {
-			return oriPongHandler(s)
-		}
-		return nil
+		_ = c.SetReadDeadline(time.Now().Add(recvTimeout))
+		return customPongHandler(s)
 	})
+	if c.customPingHandlerSet {
+		customPingHandler := c.PingHandler()
+		c.SetPingHandler(func(s string) error {
+			if err := customPingHandler(s); err != nil {
+				return err
+			}
+			return c.oriPingHandler(s)
+		})
+	}
 	return ch
 }
 
@@ -143,7 +148,7 @@ func NewServer(w http.ResponseWriter, r *http.Request, h http.Header, options ..
 		option(&upgrader)
 	}
 	conn, err := upgrader.Upgrade(w, r, h)
-	return &Conn{conn: conn}, err
+	return &Conn{conn: conn, oriPingHandler: conn.PingHandler()}, err
 }
 
 func newClient(dialer *websocket.Dialer, scheme, addr, path string, h http.Header) (*Conn, error) {
@@ -159,7 +164,7 @@ func newClient(dialer *websocket.Dialer, scheme, addr, path string, h http.Heade
 		}
 		return nil, err
 	}
-	return &Conn{conn: conn}, nil
+	return &Conn{conn: conn, oriPingHandler: conn.PingHandler()}, nil
 }
 
 // NewClient scheme is "ws" or "wss"
