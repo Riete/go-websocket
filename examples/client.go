@@ -16,7 +16,7 @@ func main() {
 		log.Println("recv ping from server: " + s)
 		return nil
 	})
-	ch := c.SendHeartbeat(context.Background(), time.Second, 3*time.Second, []byte("hello I'm client"))
+	ch := c.SendHeartbeat(context.Background(), time.Second, 3, []byte("hello I'm client"))
 	go func() {
 		log.Println(<-ch)
 	}()

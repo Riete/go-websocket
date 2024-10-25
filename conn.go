@@ -106,13 +106,11 @@ func (c *Conn) Close() error {
 	return c.conn.Close()
 }
 
-func (c *Conn) SendHeartbeat(ctx context.Context, sendInterval time.Duration, recvTimeout time.Duration, data []byte) chan error {
+func (c *Conn) SendHeartbeat(ctx context.Context, interval time.Duration, threshold int64, data []byte) chan error {
 	ch := make(chan error)
-	if sendInterval > recvTimeout {
-		recvTimeout = sendInterval + time.Second
-	}
+	timeout := time.Duration(threshold) * interval
 	go func() {
-		ticker := time.NewTicker(sendInterval)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		defer close(ch)
 		for {
@@ -127,10 +125,10 @@ func (c *Conn) SendHeartbeat(ctx context.Context, sendInterval time.Duration, re
 			}
 		}
 	}()
-	_ = c.SetReadDeadline(time.Now().Add(recvTimeout))
+	_ = c.SetReadDeadline(time.Now().Add(timeout))
 	customPongHandler := c.PongHandler()
 	c.SetPongHandler(func(s string) error {
-		_ = c.SetReadDeadline(time.Now().Add(recvTimeout))
+		_ = c.SetReadDeadline(time.Now().Add(timeout))
 		return customPongHandler(s)
 	})
 	return ch

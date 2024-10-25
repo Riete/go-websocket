@@ -15,7 +15,7 @@ func echo(w http.ResponseWriter, r *http.Request) {
 		log.Println("recv ping from client: " + s)
 		return nil
 	})
-	ch := s.SendHeartbeat(context.Background(), time.Second, 3*time.Second, []byte("hello I'm server"))
+	ch := s.SendHeartbeat(context.Background(), time.Second, 3, []byte("hello I'm server"))
 	go func() {
 		log.Println("heartbeat", <-ch)
 	}()
