@@ -107,7 +107,7 @@ func (c *Conn) Close() error {
 }
 
 func (c *Conn) SendHeartbeat(ctx context.Context, interval time.Duration, threshold int64, data []byte) chan error {
-	ch := make(chan error)
+	ch := make(chan error, 1)
 	timeout := time.Duration(threshold) * interval
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -116,6 +116,7 @@ func (c *Conn) SendHeartbeat(ctx context.Context, interval time.Duration, thresh
 		for {
 			select {
 			case <-ctx.Done():
+				ch <- nil
 				return
 			case <-ticker.C:
 				if err := c.WritePing(data); err != nil {
