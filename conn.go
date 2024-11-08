@@ -106,21 +106,23 @@ func (c *Conn) Close() error {
 	return c.conn.Close()
 }
 
-func (c *Conn) SendHeartbeat(ctx context.Context, interval time.Duration, threshold int64, data []byte) chan error {
-	ch := make(chan error, 1)
+func (c *Conn) SendHeartbeat(ctx context.Context, interval time.Duration, threshold int64, data []byte, onQuit func(error)) {
 	timeout := time.Duration(threshold) * interval
 	go func() {
+		var err error
 		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		defer close(ch)
+		defer func() {
+			ticker.Stop()
+			if onQuit != nil {
+				onQuit(err)
+			}
+		}()
 		for {
 			select {
 			case <-ctx.Done():
-				ch <- nil
 				return
 			case <-ticker.C:
-				if err := c.WritePing(data); err != nil {
-					ch <- err
+				if err = c.WritePing(data); err != nil {
 					return
 				}
 			}
@@ -132,7 +134,6 @@ func (c *Conn) SendHeartbeat(ctx context.Context, interval time.Duration, thresh
 		_ = c.SetReadDeadline(time.Now().Add(timeout))
 		return customPongHandler(s)
 	})
-	return ch
 }
 
 func NewServer(w http.ResponseWriter, r *http.Request, h http.Header, options ...UpgraderOption) (*Conn, error) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -16,10 +17,7 @@ func main() {
 		log.Println("recv ping from server: " + s)
 		return nil
 	})
-	ch := c.SendHeartbeat(context.Background(), time.Second, 3, []byte("hello I'm client"))
-	go func() {
-		log.Println(<-ch)
-	}()
+	c.SendHeartbeat(context.Background(), time.Second, 3, []byte("hello I'm client"), func(err error) { fmt.Println(1, err) })
 	go func() {
 		for {
 			time.Sleep(time.Second)
