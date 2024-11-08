@@ -12,7 +12,11 @@ import (
 )
 
 func main() {
-	c, _ := ws.NewClient(nil, "ws", "127.0.0.1:8080", "echo", nil)
+	c, err := ws.NewClient(nil, "ws://localhost:8080/echo", nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	c.SetPingHandler(func(s string) error {
 		log.Println("recv ping from server: " + s)
 		return nil

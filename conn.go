@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -145,34 +144,18 @@ func NewServer(w http.ResponseWriter, r *http.Request, h http.Header, options ..
 	return &Conn{conn: conn, oriPingHandler: conn.PingHandler()}, err
 }
 
-func newClient(dialer *websocket.Dialer, scheme, addr, path string, h http.Header) (*Conn, error) {
-	u := url.URL{Scheme: scheme, Host: addr, Path: path}
-	conn, r, err := dialer.Dial(u.String(), h)
-	if err != nil {
-		if r != nil {
-			b, er := io.ReadAll(r.Body)
-			if er != nil {
-				_ = r.Body.Close()
-			}
-			return nil, fmt.Errorf("%s: %s %s", err.Error(), r.Status, string(b))
-		}
-		return nil, err
-	}
-	return &Conn{conn: conn, oriPingHandler: conn.PingHandler()}, nil
-}
-
-// NewClient scheme is "ws" or "wss"
-func NewClient(dialer *websocket.Dialer, scheme, addr, path string, h http.Header) (*Conn, error) {
+func NewClient(dialer *websocket.Dialer, url string, h http.Header) (*Conn, error) {
 	if dialer == nil {
 		dialer = websocket.DefaultDialer
 	}
-	return newClient(dialer, scheme, addr, path, h)
-}
-
-func NewWsClient(dialer *websocket.Dialer, addr, path string, h http.Header) (*Conn, error) {
-	return NewClient(dialer, "ws", addr, path, h)
-}
-
-func NewWssClient(dialer *websocket.Dialer, addr, path string, h http.Header) (*Conn, error) {
-	return NewClient(dialer, "wss", addr, path, h)
+	conn, r, err := dialer.Dial(url, h)
+	if err == nil {
+		return &Conn{conn: conn, oriPingHandler: conn.PingHandler()}, nil
+	}
+	if r != nil {
+		b, _ := io.ReadAll(r.Body)
+		_ = r.Body.Close()
+		return nil, fmt.Errorf("connect to [%s] failed: %s, %s", url, err.Error(), string(b))
+	}
+	return nil, fmt.Errorf("connect to [%s] failed: %s", url, err.Error())
 }
